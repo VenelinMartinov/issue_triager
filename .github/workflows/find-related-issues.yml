@@ -1,0 +1,21 @@
+name: Find related issues
+
+on: issue_comment
+
+jobs:
+  find-related:
+    # This job only runs for pull request comments
+    name: Find Related Issues
+    if: ${{ github.event.issue.pull_request }} && contains(github.event.comment.body, '/find-related')
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo A comment on PR $NUMBER
+        env:
+          NUMBER: ${{ github.event.issue.number }}
+      - name: Comment PR
+        uses: thollander/actions-comment-pull-request@v2
+        with:
+          message: |
+            Hello world ! :wave:
+          reactions: +1, -1
