@@ -13,6 +13,10 @@ jobs:
     name: Find Related Issues
     runs-on: ubuntu-latest
     steps:
+      - name: Set Swap Space
+        uses: pierotofy/set-swap-space@master
+        with:
+          swap-size-gb: 10
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v4
         with:
