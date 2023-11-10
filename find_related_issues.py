@@ -1,5 +1,6 @@
 import argparse
 import logging
+import pathlib
 import pandas as pd
 import numpy as np
 import requests
@@ -66,6 +67,7 @@ def llm_prompt(issue_one: str, issue_two: str) -> int:
         temperature=0,
         max_tokens=4095,
     )
+    logging.debug(response.choices[0].message.content)
 
     messages += [
         {
@@ -85,7 +87,7 @@ def llm_prompt(issue_one: str, issue_two: str) -> int:
         max_tokens=4095,
     )
 
-    logging.info(response.choices[0].message.content)
+    return response.choices[0].message.content
 
 
 def get_github_issue_prompt(url: str) -> str:
@@ -108,11 +110,15 @@ def get_github_issue_prompt(url: str) -> str:
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--url", required=True)
+    parser.add_argument("--output-file", type=pathlib.Path)
     args = parser.parse_args()
+
+    output_file: pathlib.Path = args.output_file
 
     input_prompt = get_github_issue_prompt(args.url)
     df = get_embedding_related_issues(input_prompt, top_n=10)
 
+    output_buffer = "Potentially similar issues:\n"
     for i in range(len(df)):
         logging.info("Comparing %s", df.iloc[i].ISSUE_URL)
         other_issue = get_combined_text(
@@ -121,7 +127,11 @@ def main():
             created_at=df.iloc[i].CREATED_AT,
             body=df.iloc[i].BODY,
         )
-        llm_prompt(input_prompt, other_issue)
+        score = llm_prompt(input_prompt, other_issue)
+        logging.info("Score: %s", score)
+
+        output_buffer += f"{df.iloc[i].ISSUE_URL}, {score}\n"
+    output_file.write_text(output_buffer)
 
 
 if __name__ == "__main__":

@@ -3,22 +3,34 @@ name: Find related issues
 permissions: 
   pull-requests: write
 
-on: issue_comment
+on:
+  issues:
+    types: [opened]
 
 jobs:
   find-related:
     # This job only runs for pull request comments
     name: Find Related Issues
-    if: ${{ github.event.issue.pull_request }} && contains(github.event.comment.body, '/find-related')
     runs-on: ubuntu-latest
     steps:
-      - run: |
-          echo A comment on PR $NUMBER
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - uses: keithweaver/aws-s3-github-action@v1.0.0
+        with:
+          command: cp
+          source: "${{ secrets.EMBEDDING_S3_BUCKET }}/embeddings.csv"
+          destination: ./embeddings.csv
+          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws_region: us-east-1
+      - run: python find_related_issues.py --url ${{ github.event.issue.url}} --output-file output.txt
         env:
-          NUMBER: ${{ github.event.issue.number }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY}}
       - name: Comment PR
         uses: thollander/actions-comment-pull-request@v2
         with:
-          message: |
-            Hello world ! :wave:
-          reactions: +1, -1
+          filePath: output.txt
