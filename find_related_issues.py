@@ -11,6 +11,7 @@ client = OpenAI()
 pd.set_option("display.max_colwidth", None)
 
 logging.basicConfig(level=logging.INFO)
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
 def cosine_similarity(a, b):
@@ -49,24 +50,42 @@ def get_embedding_related_issues(prompt: str, top_n: int = 10) -> pd.DataFrame:
 
 def llm_prompt(issue_one: str, issue_two: str) -> int:
     logging.debug("Prompts:\n%s\n%s", issue_one, issue_two)
+    messages = [
+        {
+            "role": "system",
+            "content": "You are an expert at triaging github issues for pulumi repositories. You are especially good at recognising if two issues are actually caused by the same underlying problem.\nHere is a bit of background on the repositories:\nPulumi is an infrastructure as code tool which allows users to provision cloud resources for various cloud providers. Each provider has a separate repository called pulumi-<provider-name>. Most of these are built on top of an upstream terraform provider through pulumi-terraform-bridge. For example, pulumi-aws is built on terraform-provider-aws through pulumi-terraform-bridge. There are also native providers which do not depend on terraform-bridge or the terraform provider, like pulumi-azure-native.\nYou'll be given the descriptions of the issues and you should output a number between 1 and 100 to mean how likely the two issues are to be caused by the same problem. This should either mean that two pulumi provider issues are caused by the same problem in pulumi, that a provider issue is caused by an issue in terraform-bridge or that a pulumi provider issue is caused by an upstream terraform provider issue. 1 means extremely unlikely, 100 means almost certainly.\nExplain your reasoning before outputting the number. Make sure to end with the numeric score.\nPay particular attention to the messages under diagnostics and the stack traces - if the error messages and stack traces are very similar then the two issues are very likely to be related, even if they relate to different resources. The code for handling resources in the pulumi providers is generated so problems often affect multiple resource in the same way.",
+        },
+        {
+            "role": "user",
+            "content": f"Are these issues related?\nIssue 1: {issue_one}\nIssue 2: {issue_two}\n",
+        },
+    ]
     response = client.chat.completions.create(
         model="gpt-4-1106-preview",
-        messages=[
-            {
-                "role": "system",
-                "content": "You are an expert at triaging github issues for pulumi repositories. You are especially good at recognising if two issues are actually caused by the same underlying problem.\nHere is a bit of background on the repositories:\nPulumi is an infrastructure as code tool which allows users to provision cloud resources for various cloud providers. Each provider has a separate repository called pulumi-<provider-name>. Most of these are built on top of an upstream terraform provider through pulumi-terraform-bridge. For example, pulumi-aws is built on terraform-provider-aws through pulumi-terraform-bridge. There are also native providers which do not depend on terraform-bridge or the terraform provider, like pulumi-azure-native.\nYou'll be given the descriptions of the issues and you should output a number between 1 and 100 to mean how likely the two issues are to be caused by the same problem. This should either mean that two pulumi provider issues are caused by the same problem in pulumi, that a provider issue is caused by an issue in terraform-bridge or that a pulumi provider issue is caused by an upstream terraform provider issue. 1 means extremely unlikely, 100 means almost certainly.\nExplain your reasoning before outputting the number. Make sure to end with the numeric score.\nPay particular attention to the messages under diagnostics and the stack traces - if the error messages and stack traces are very similar then the two issues are very likely to be related, even if they relate to different resources. The code for handling resources in the pulumi providers is generated so problems often affect multiple resource in the same way.",
-            },
-            {
-                "role": "user",
-                "content": f"Are these issues related?\nIssue 1: {issue_one}\nIssue 2: {issue_two}\n",
-            },
-        ],
+        messages=messages,
         temperature=0,
         max_tokens=4095,
     )
 
-    message = response.choices[0].message.content
-    logging.info(message.split("\n")[-1])
+    messages += [
+        {
+            "role": response.choices[0].message.role,
+            "content": response.choices[0].message.content,
+        },
+        {
+            "role": "user",
+            "content": "Output just the numeric score.",
+        },
+    ]
+
+    response = client.chat.completions.create(
+        model="gpt-4-1106-preview",
+        messages=messages,
+        temperature=0,
+        max_tokens=4095,
+    )
+
+    logging.info(response.choices[0].message.content)
 
 
 def get_github_issue_prompt(url: str) -> str:
