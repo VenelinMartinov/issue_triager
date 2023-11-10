@@ -27,7 +27,7 @@ jobs:
       - name: Copy embeddings from s3
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
-          aws s3 cp ${{ env.EMBEDDING_FILE_ADDRESS }} .
+          aws s3 cp s3://mybucket-edbd356/embeddings.csv .
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
