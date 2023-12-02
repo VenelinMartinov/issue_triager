@@ -5,9 +5,10 @@ import pandas as pd
 import numpy as np
 import requests
 from urllib.parse import urlparse
-from generate_embeddings import get_embeddings, EMBEDDINGS_FILE
+from generate_embeddings import get_embeddings
 from openai import OpenAI
 
+EMBEDDINGS_FILE = "embeddings.csv"
 client = OpenAI()
 pd.set_option("display.max_colwidth", None)
 

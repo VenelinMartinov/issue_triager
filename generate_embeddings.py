@@ -2,6 +2,7 @@ from pprint import pprint
 import pandas as pd
 from openai import OpenAI
 import tiktoken
+from tqdm import trange
 
 # embedding model parameters
 EMBEDDING_MODEL = "text-embedding-ada-002"
@@ -57,16 +58,6 @@ ALL_COLUMNS = [
     "ESTIMATED_TRIAGE_HOURS",
 ]
 
-RELEVANT_COLUMNS = [
-    "REPOSITORY_NAME",
-    "TITLE",
-    "ISSUE_URL",
-    "CREATED_AT",
-    "ISSUE_ID",
-    "BODY",
-    "LABELS",
-]
-
 
 def get_embeddings(text: list[str], model=EMBEDDING_MODEL) -> list[list[float]]:
     text = [subtext.replace("\n", " ") for subtext in text]
@@ -77,7 +68,6 @@ def get_embeddings(text: list[str], model=EMBEDDING_MODEL) -> list[list[float]]:
 def clean_csv(file_path: str) -> pd.DataFrame:
     df = pd.read_csv(file_path)
     df.columns = ALL_COLUMNS
-    df = df[RELEVANT_COLUMNS]
 
     df = df[df.REPOSITORY_NAME.notnull() & df.TITLE.notnull() & df.BODY.notnull()]
     df = df[
@@ -120,7 +110,7 @@ def main():
     df = clean_csv(ALL_ISSUES_FILE)
     # OpenAI allows up to 2000 elements in the API input
     chunks = []
-    for chunk_num in range(len(df) // 2000 + 1):
+    for chunk_num in trange(len(df) // 2000 + 1):
         df_chunk = df.iloc[chunk_num * 2000 : (chunk_num + 1) * 2000]
         chunks += get_embeddings(df_chunk.combined)
     df["embedding"] = chunks
